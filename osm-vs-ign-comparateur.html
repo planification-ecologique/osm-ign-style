@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OSM en rendu IGN — comparateur</title>
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css" rel="stylesheet">
+<style>
+  :root { --pos: 50%; }
+  html, body { margin:0; height:100%; overflow:hidden;
+               font-family:"Marianne", -apple-system, system-ui, sans-serif; }
+  .carte { position:absolute; inset:0; }
+  /* La carte du dessus est rognée : clip-path découpe aussi la zone
+     sensible au pointeur, chaque moitié reste donc manipulable. */
+  #carte-ign { clip-path: inset(0 0 0 var(--pos)); }
+
+  #rideau { position:absolute; top:0; bottom:0; left:var(--pos); width:2px;
+            background:#000091; z-index:3; cursor:ew-resize; }
+  #poignee { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+             width:40px; height:40px; border-radius:50%; background:#000091;
+             border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.3);
+             cursor:ew-resize; touch-action:none;
+             display:flex; align-items:center; justify-content:center;
+             color:#fff; font-size:15px; letter-spacing:-2px; }
+  #poignee:focus-visible { outline:3px solid #0a76f6; outline-offset:3px; }
+
+  .etiquette { position:absolute; top:14px; z-index:2; background:rgba(255,255,255,.94);
+               border:1px solid #ddd; border-radius:4px; padding:5px 10px;
+               font-size:12px; font-weight:500; pointer-events:none; }
+  .etiquette span { display:block; font-weight:400; color:#666; font-size:11px; }
+  #eti-osm { left:14px; }
+  #eti-ign { right:14px; text-align:right; }
+
+  #pied { position:absolute; right:0; bottom:0; z-index:2;
+          background:rgba(255,255,255,.9); font-size:10.5px; color:#444;
+          padding:2px 6px; }
+  #pied a { color:#000091; }
+
+  #zoom-hud { position:absolute; left:50%; bottom:18px; transform:translateX(-50%);
+              z-index:4; display:flex; align-items:center; gap:8px;
+              background:rgba(255,255,255,.94); border:1px solid #ddd;
+              border-radius:6px; padding:6px 10px; box-shadow:0 1px 4px rgba(0,0,0,.12); }
+  #zoom-hud button { width:28px; height:28px; border:1px solid #000091; border-radius:4px;
+                     background:#000091; color:#fff; font-size:16px; line-height:1;
+                     cursor:pointer; padding:0; }
+  #zoom-hud button:hover { background:#1212a5; }
+  #zoom-hud button:focus-visible { outline:3px solid #0a76f6; outline-offset:2px; }
+  #zoom-slider { width:min(220px, 36vw); accent-color:#000091; cursor:pointer; }
+  #zoom-val { font-size:12px; font-weight:600; color:#000091; min-width:3.6em;
+              font-variant-numeric:tabular-nums; text-align:right; }
+
+  #diag { position:absolute; left:14px; bottom:14px; z-index:4; max-width:320px;
+          font-size:12px; color:#fff; background:#b34000; border-radius:4px; }
+  #diag div { padding:7px 10px; word-break:break-word; }
+  #diag:empty { display:none; }
+</style>
+</head>
+<body>
+<div id="carte-osm" class="carte"></div>
+<div id="carte-ign" class="carte"></div>
+
+<div id="rideau">
+  <div id="poignee" tabindex="0" role="slider" aria-label="Position du rideau de comparaison"
+       aria-valuemin="0" aria-valuemax="100" aria-valuenow="50">◀▶</div>
+</div>
+
+<div class="etiquette" id="eti-osm">Données OSM<span>rendu façon IGN</span></div>
+<div class="etiquette" id="eti-ign">PLAN IGN<span>tuiles Géoplateforme</span></div>
+
+<div id="zoom-hud" role="group" aria-label="Contrôle du zoom">
+  <button type="button" id="zoom-moins" aria-label="Zoom arrière">−</button>
+  <input type="range" id="zoom-slider" min="0" max="18" step="0.1" value="8"
+         aria-label="Niveau de zoom">
+  <button type="button" id="zoom-plus" aria-label="Zoom avant">+</button>
+  <span id="zoom-val" aria-live="polite">z 8.0</span>
+</div>
+
+<div id="pied">
+  © les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · PLAN IGN © IGN
+</div>
+<div id="diag"></div>
+
+<script>
+const C = {
+  fond:        '#FFFFFF',
+  ocean:       '#CFE4EE',
+  eau:         '#B5D8E8',
+  eauTrait:    '#9CC9DE',
+
+  foret:       '#DFE8D5',
+  foretOuverte:'#EDF2D9',
+  lande:       '#F2EECD',
+  verger:      '#FAE2C5',
+  vigne:       '#FFEDD9',
+  herbe:       '#E9EFDD',
+  sable:       '#FAF3E0',
+  rocher:      '#EFEDE8',
+  glacier:     '#FFFFFF',
+  urbain:      '#F2EFEA',
+  industriel:  '#EAE6E0',
+  site:        '#F0EDE6',
+
+  bati:        '#C9C0B4',
+  batiContour: '#B0A79A',
+
+  autoroute:   '#E8862B',  autorouteC: '#CB7524',
+  nationale:   '#F0A24A',  nationaleC: '#D68E3C',
+  departement: '#F7BE72',  departementC:'#DFA95F',
+  secondaire:  '#FBD9A5',  secondaireC:'#E3C593',
+  locale:      '#FFFFFF',  localeC:    '#CFCAC2',
+  chemin:      '#B0A48F',
+  rail:        '#8E8E8E',
+
+  ecusson:     '#8A8A88',  ecussonBord: '#6E6E6C',
+  ponctuel:    '#FFFFFF',  ponctuelBord:'#55524C',
+
+  frontiere:   '#9E8FC4',
+  limiteRegion:'#B3A6D2',
+
+  texte:       '#33322F',
+  texteHalo:   '#FFFFFF',
+  texteEau:    '#3F7A99'
+};
+
+const POLICE   = ['Noto Sans Regular'];
+const POLICE_G = ['Noto Sans Medium'];
+
+/* --------------------------------------------------------------------------
+   Largeurs de routes : interpolation exponentielle sur le zoom.
+-------------------------------------------------------------------------- */
+const larg = (paires) => ['interpolate', ['exponential', 1.5], ['zoom'], ...paires.flat()];
+
+/* Une classe de route = une couche "casing" + une couche "fill".
+   Le liseré doit s'épaissir AVEC le zoom : à z8 le cœur d'une autoroute
+   fait ~1,2 px, un liseré fixe de +2 px le noyait sous une couleur sombre
+   et écrasait toute la hiérarchie du réseau. On le rend proportionnel. */
+function route(id, filtre, couleur, casing, largeurs, casingPlus = 2, minzoom = 0) {
+  const supp = z => casingPlus * Math.min(1, Math.max(0.15, (z - 8) / 5));
+  const w  = larg(largeurs);
+  const wc = larg(largeurs.map(([z, l]) => [z, l + supp(z)]));
+  const base = { source: 'osm', 'source-layer': 'streets', type: 'line', filter: filtre,
+                 minzoom, layout: { 'line-cap': 'round', 'line-join': 'round' } };
+  return [
+    { ...base, id: id + '-casing',
+      paint: { 'line-color': casing, 'line-width': wc,
+               'line-opacity': ['case', ['==', ['get','tunnel'], true], 0.35, 1] } },
+    { ...base, id: id,
+      paint: { 'line-color': couleur, 'line-width': w } }
+  ];
+}
+
+const styleOSM = {
+  version: 8,
+  name: 'OSM — rendu IGN',
+  glyphs: 'https://protomaps.github.io/basemaps-assets/fonts/{fontstack}/{range}.pbf',
+  sources: {
+    osm: {
+      type: 'vector',
+      tiles: ['https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt'],
+      minzoom: 0, maxzoom: 14,
+      attribution: '© les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }
+  },
+  layers: [
+    { id: 'fond', type: 'background', paint: { 'background-color': C.fond } },
+
+    /* --- Occupation du sol ------------------------------------------- */
+    { id: 'land', type: 'fill', source: 'osm', 'source-layer': 'land',
+      paint: { 'fill-color': ['match', ['get','kind'],
+        'forest', C.foret,
+        'scrub', C.foretOuverte, 'heath', C.lande, 'grassland', C.herbe,
+        'grass', C.herbe, 'meadow', C.herbe, 'village_green', C.herbe,
+        'park', C.herbe, 'garden', C.herbe, 'recreation_ground', C.herbe,
+        'orchard', C.verger, 'plant_nursery', C.verger,
+        'vineyard', C.vigne,
+        'farmland', '#FBF7EC', 'farmyard', '#F4EFE4', 'allotments', '#F2EFDD',
+        'sand', C.sable, 'beach', C.sable, 'shingle', C.sable,
+        'bare_rock', C.rocher, 'scree', C.rocher,
+        'swamp', '#DCE8E0', 'bog', '#DCE8E0', 'marsh', '#DCE8E0',
+        'wet_meadow', '#DCE8E0', 'string_bog', '#DCE8E0',
+        'residential', C.urbain, 'retail', C.urbain, 'commercial', C.urbain,
+        'garages', C.urbain, 'brownfield', C.urbain, 'greenfield', C.urbain,
+        'industrial', C.industriel, 'railway', C.industriel,
+        'landfill', C.industriel, 'quarry', C.industriel,
+        'cemetery', '#E4E8DC', 'grave_yard', '#E4E8DC',
+        'golf_course', C.herbe, 'miniature_golf', C.herbe, 'playground', C.herbe,
+        'greenhouse_horticulture', '#EFF2E6',
+        'transparent' ] } },
+
+    { id: 'sites', type: 'fill', source: 'osm', 'source-layer': 'sites',
+      minzoom: 14, paint: { 'fill-color': C.site, 'fill-opacity': 0.7 } },
+
+    /* --- Eau ---------------------------------------------------------- */
+    { id: 'ocean', type: 'fill', source: 'osm', 'source-layer': 'ocean',
+      paint: { 'fill-color': C.ocean } },
+    { id: 'eau', type: 'fill', source: 'osm', 'source-layer': 'water_polygons',
+      paint: { 'fill-color': ['match', ['get','kind'], 'glacier', C.glacier, C.eau],
+               'fill-outline-color': C.eauTrait } },
+    { id: 'cours-eau-mineur', type: 'line', source: 'osm', 'source-layer': 'water_lines',
+      minzoom: 11,
+      filter: ['all', ['!=', ['get','tunnel'], true],
+                      ['in', ['get','kind'], ['literal',['stream','ditch','canal']]]],
+      paint: { 'line-color': C.eauTrait, 'line-width': larg([[11,0.5],[16,1.8]]) } },
+    { id: 'cours-eau', type: 'line', source: 'osm', 'source-layer': 'water_lines',
+      filter: ['all', ['!=', ['get','tunnel'], true], ['==', ['get','kind'], 'river']],
+      paint: { 'line-color': C.eauTrait, 'line-width': larg([[5,0.8],[8,1.4],[12,2.6],[16,5.5]]) } },
+
+    /* --- Bâti --------------------------------------------------------- */
+    { id: 'bati', type: 'fill', source: 'osm', 'source-layer': 'buildings',
+      minzoom: 14,
+      paint: { 'fill-color': C.bati, 'fill-outline-color': C.batiContour } },
+
+    /* --- Voies ferrées ------------------------------------------------ */
+    { id: 'rail', type: 'line', source: 'osm', 'source-layer': 'streets',
+      filter: ['==', ['get','rail'], true],
+      paint: { 'line-color': C.rail,
+               'line-width': larg([[8,0.5],[14,1.4]]),
+               'line-dasharray': [3, 2] } },
+
+    /* --- Chemins ------------------------------------------------------ */
+    { id: 'chemins', type: 'line', source: 'osm', 'source-layer': 'streets',
+      minzoom: 13,
+      filter: ['in', ['get','kind'], ['literal',['track','path','footway','cycleway','steps']]],
+      paint: { 'line-color': C.chemin, 'line-width': larg([[13,0.5],[17,1.6]]),
+               'line-dasharray': [2.5, 1.5] } },
+
+    /* --- Réseau routier ----------------------------------------------- */
+    ...route('locale',
+      ['in', ['get','kind'], ['literal',['residential','unclassified','living_street','service','pedestrian','busway','bus_guideway']]],
+      C.locale, C.localeC, [[12,0.4],[14,1.6],[17,7]], 1.2, 11),
+
+    ...route('tertiaire', ['==', ['get','kind'], 'tertiary'],
+      C.secondaire, C.secondaireC, [[10,0.6],[13,2],[17,9]], 1.4, 9),
+
+    ...route('secondaire', ['==', ['get','kind'], 'secondary'],
+      C.departement, C.departementC, [[9,0.8],[13,2.6],[17,11]], 1.6),
+
+    ...route('primaire', ['==', ['get','kind'], 'primary'],
+      C.nationale, C.nationaleC, [[8,0.9],[13,3.2],[17,13]], 1.8),
+
+    ...route('trunk', ['==', ['get','kind'], 'trunk'],
+      C.nationale, C.nationaleC, [[6,0.9],[13,3.6],[17,14]], 2),
+
+    ...route('autoroute', ['==', ['get','kind'], 'motorway'],
+      C.autoroute, C.autorouteC, [[5,0.9],[13,4],[17,16]], 2),
+
+    /* --- Limites ------------------------------------------------------
+       Shortbread ne porte que admin_level 2 (pays) et 4 (région).
+       Les limites départementales sont hors de portée de ces tuiles. */
+    { id: 'limite-region', type: 'line', source: 'osm', 'source-layer': 'boundaries',
+      filter: ['all', ['==', ['get','admin_level'], 4], ['!=', ['get','maritime'], true]],
+      minzoom: 6,
+      paint: { 'line-color': C.limiteRegion,
+               'line-width': larg([[6,0.8],[10,1.4],[14,2]]),
+               'line-dasharray': [5, 3] } },
+    { id: 'frontiere', type: 'line', source: 'osm', 'source-layer': 'boundaries',
+      filter: ['all', ['==', ['get','admin_level'], 2], ['!=', ['get','maritime'], true]],
+      paint: { 'line-color': C.frontiere,
+               'line-width': larg([[3,0.8],[8,2],[12,3]]),
+               'line-dasharray': [3, 1.5] } },
+
+    /* --- Écritures ---------------------------------------------------- */
+    { id: 'lbl-eau', type: 'symbol', source: 'osm', 'source-layer': 'water_polygons_labels',
+      minzoom: 9,
+      layout: { 'text-field': ['get','name'], 'text-font': POLICE, 'text-size': 11,
+                'text-max-width': 7 },
+      paint: { 'text-color': C.texteEau, 'text-halo-color': C.texteHalo, 'text-halo-width': 1.2 } },
+
+    { id: 'lbl-rue', type: 'symbol', source: 'osm', 'source-layer': 'street_labels',
+      minzoom: 14, filter: ['has','name'],
+      layout: { 'symbol-placement': 'line', 'text-field': ['get','name'],
+                'text-font': POLICE, 'text-size': 10.5 },
+      paint: { 'text-color': '#5A5751', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.4 } },
+
+    /* Écussons de route : le fond est une image 9-tranches fabriquée au
+       chargement (voir creerEcusson), ce qui évite un fichier sprite. */
+    { id: 'ecussons', type: 'symbol', source: 'osm', 'source-layer': 'street_labels',
+      minzoom: 7,
+      filter: ['all', ['has','ref'],
+               ['in', ['get','kind'], ['literal',['motorway','trunk','primary']]]],
+      layout: { 'symbol-placement': 'line', 'symbol-spacing': 220,
+                'text-field': ['get','ref'], 'text-font': POLICE_G, 'text-size': 10,
+                'text-rotation-alignment': 'viewport',
+                'icon-rotation-alignment': 'viewport',
+                'icon-image': 'ecusson', 'icon-text-fit': 'both',
+                'icon-text-fit-padding': [1, 4, 1, 4],
+                'text-padding': 2, 'icon-allow-overlap': false },
+      paint: { 'text-color': '#FFFFFF' } },
+
+    /* Ponctuel de localité : le petit cercle caractéristique du Plan IGN. */
+    { id: 'pct-lieu', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
+      filter: ['in', ['get','kind'], ['literal',
+        ['capital','state_capital','city','town','village','hamlet']]],
+      paint: {
+        'circle-color': C.ponctuel,
+        'circle-stroke-color': C.ponctuelBord,
+        'circle-stroke-width': 1,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          5,  ['match', ['get','kind'], 'capital', 3, 'state_capital', 2.6, 'city', 2.2, 1.6],
+          11, ['match', ['get','kind'], 'capital', 4.5, 'state_capital', 4, 'city', 3.5, 2.4]] } },
+
+    { id: 'lbl-lieu', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': ['case',
+          ['in', ['get','kind'], ['literal',['capital','state_capital','city']]], ['literal', POLICE_G],
+          ['literal', POLICE]],
+        'text-transform': ['case',
+          ['in', ['get','kind'], ['literal',['capital','state_capital','city']]], 'uppercase', 'none'],
+        'text-size': ['interpolate', ['linear'], ['zoom'],
+          4,  ['match', ['get','kind'], 'capital', 13, 'state_capital', 11, 'city', 10, 9],
+          10, ['match', ['get','kind'], 'capital', 20, 'state_capital', 17, 'city', 15,
+                        'town', 13, 'village', 11, 10],
+          14, ['match', ['get','kind'], 'capital', 24, 'state_capital', 21, 'city', 19,
+                        'town', 16, 'village', 14, 12]],
+        'text-letter-spacing': ['case',
+          ['in', ['get','kind'], ['literal',['capital','state_capital','city']]], 0.08, 0],
+        /* Le libellé se place autour du ponctuel, en évitant les collisions. */
+        'text-variable-anchor': ['left','right','top','bottom'],
+        'text-radial-offset': 0.65,
+        'text-justify': 'auto',
+        'text-max-width': 8,
+        'text-padding': 3
+      },
+      paint: { 'text-color': C.texte, 'text-halo-color': C.texteHalo, 'text-halo-width': 1.6 } }
+  ]
+};
+
+/* ------------------------------------------------------------------------ */
+
+/* ------------------------------------------------------------------------ */
+const STYLE_IGN = 'https://data.geopf.fr/annexes/ressources/vectorTiles/styles/PLAN.IGN/standard.json';
+const VUE = { center: [7.05, 45.35], zoom: 8 };   // frontière franco-italienne
+
+const commun = { attributionControl: false, ...VUE };
+const carteOSM = new maplibregl.Map({ container: 'carte-osm', style: styleOSM, hash: true, ...commun });
+const carteIGN = new maplibregl.Map({ container: 'carte-ign', style: STYLE_IGN, ...commun });
+
+carteOSM.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+/* --- Zoom HUD ------------------------------------------------------------
+   Slider + boutons ± + niveau affiché. Les deux cartes restent sync via
+   suivre() ; on pilote uniquement carteOSM. */
+const Z_MIN = 0, Z_MAX = 18, Z_PAS = 0.5;
+const zoomSlider = document.getElementById('zoom-slider');
+const zoomVal    = document.getElementById('zoom-val');
+let zoomUi = false;   // évite de renvoyer setZoom quand l'UI suit la carte
+
+function afficherZoom(z) {
+  const n = Math.min(Z_MAX, Math.max(Z_MIN, z));
+  zoomVal.textContent = 'z ' + n.toFixed(1);
+  zoomSlider.value = n.toFixed(1);
+}
+
+function appliquerZoom(z) {
+  const n = Math.min(Z_MAX, Math.max(Z_MIN, z));
+  zoomUi = true;
+  afficherZoom(n);
+  carteOSM.zoomTo(n, { duration: 0 });
+  zoomUi = false;
+}
+
+zoomSlider.addEventListener('input', () => appliquerZoom(+zoomSlider.value));
+document.getElementById('zoom-moins').addEventListener('click',
+  () => appliquerZoom(carteOSM.getZoom() - Z_PAS));
+document.getElementById('zoom-plus').addEventListener('click',
+  () => appliquerZoom(carteOSM.getZoom() + Z_PAS));
+carteOSM.on('zoom', () => { if (!zoomUi) afficherZoom(carteOSM.getZoom()); });
+afficherZoom(VUE.zoom);
+
+/* --- Écusson de route ----------------------------------------------------
+   MapLibre sait étirer une image en 9 tranches (stretchX/stretchY/content)
+   pour l'ajuster au texte via icon-text-fit. On la dessine sur un canvas
+   plutôt que de maintenir un fichier sprite pour un seul symbole. */
+function creerEcusson(carte) {
+  if (carte.hasImage('ecusson')) return;
+  const L = 28, H = 22, R = 5, PR = 2;   // PR : rendu en 14×11 px CSS
+  const c = document.createElement('canvas');
+  c.width = L; c.height = H;
+  const g = c.getContext('2d');
+  g.fillStyle = C.ecusson;
+  g.strokeStyle = C.ecussonBord;
+  g.lineWidth = 1;
+  g.beginPath();
+  g.roundRect ? g.roundRect(0.5, 0.5, L - 1, H - 1, R)
+              : g.rect(0.5, 0.5, L - 1, H - 1);
+  g.fill(); g.stroke();
+  carte.addImage('ecusson', g.getImageData(0, 0, L, H), {
+    stretchX: [[R + 2, L - R - 2]],
+    stretchY: [[R + 2, H - R - 2]],
+    content:  [3, 2, L - 3, H - 2],
+    pixelRatio: PR
+  });
+}
+carteOSM.on('load', () => creerEcusson(carteOSM));
+carteOSM.on('styleimagemissing', e => { if (e.id === 'ecusson') creerEcusson(carteOSM); });
+
+/* --- Synchronisation des deux caméras ------------------------------------
+   Le drapeau évite la boucle : A bouge → B saute → B émet "move" → A saute… */
+let enCours = false;
+function suivre(source, cible) {
+  source.on('move', () => {
+    if (enCours) return;
+    enCours = true;
+    cible.jumpTo({
+      center:  source.getCenter(),
+      zoom:    source.getZoom(),
+      bearing: source.getBearing(),
+      pitch:   source.getPitch()
+    });
+    enCours = false;
+  });
+}
+suivre(carteOSM, carteIGN);
+suivre(carteIGN, carteOSM);
+
+/* --- Rideau --------------------------------------------------------------- */
+const rideau  = document.getElementById('rideau');
+const poignee = document.getElementById('poignee');
+let pos = 50;
+
+function placer(p) {
+  pos = Math.min(100, Math.max(0, p));
+  document.documentElement.style.setProperty('--pos', pos + '%');
+  poignee.setAttribute('aria-valuenow', Math.round(pos));
+}
+
+function depuisPointeur(e) { placer((e.clientX / window.innerWidth) * 100); }
+
+poignee.addEventListener('pointerdown', e => {
+  poignee.setPointerCapture(e.pointerId);
+  poignee.addEventListener('pointermove', depuisPointeur);
+  e.preventDefault();
+});
+poignee.addEventListener('pointerup', e => {
+  poignee.releasePointerCapture(e.pointerId);
+  poignee.removeEventListener('pointermove', depuisPointeur);
+});
+poignee.addEventListener('keydown', e => {
+  const pas = e.shiftKey ? 10 : 2;
+  if (e.key === 'ArrowLeft')  { placer(pos - pas); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { placer(pos + pas); e.preventDefault(); }
+  if (e.key === 'Home')       { placer(0);   e.preventDefault(); }
+  if (e.key === 'End')        { placer(100); e.preventDefault(); }
+});
+rideau.addEventListener('dblclick', () => placer(50));
+
+/* --- Diagnostic ----------------------------------------------------------
+   Une erreur de style fait échouer le rendu en silence : on l'affiche. */
+const diag = document.getElementById('diag');
+const vus = new Set();
+function signaler(msg) {
+  if (vus.has(msg)) return;
+  vus.add(msg);
+  const d = document.createElement('div');
+  d.textContent = msg;
+  diag.appendChild(d);
+}
+[carteOSM, carteIGN].forEach(c => c.on('error', e => {
+  const m = (e && e.error && e.error.message) || 'erreur inconnue';
+  console.warn('MapLibre:', m);
+  signaler(m);
+}));
+
+fetch('https://vector.openstreetmap.org/shortbread_v1/tilejson.json')
+  .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+  .catch(e => signaler('Tuiles OSMF injoignables (' + e.message + ')'));
+
+/* Le nom du fontstack doit correspondre exactement à un dossier de
+   protomaps/basemaps-assets : « Noto Sans Regular », « Noto Sans Medium »,
+   « Noto Sans Italic ». Il n'y a pas de graisse Bold. */
+[POLICE[0], POLICE_G[0]].forEach(f =>
+  fetch(styleOSM.glyphs.replace('{fontstack}', encodeURIComponent(f)).replace('{range}', '0-255'))
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); })
+    .catch(e => signaler('Police « ' + f + ' » indisponible (' + e.message +
+      ') : les libellés correspondants ne s’afficheront pas.')));
+</script>
+</body>
+</html>
