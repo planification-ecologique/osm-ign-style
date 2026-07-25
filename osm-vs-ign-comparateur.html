@@ -122,8 +122,8 @@ const C = {
   sable:       '#FAF3E0',
   rocher:      '#EFEDE8',
   glacier:     '#E4F1F6',
-  /* Zone bâtie PLAN IGN (#E8E2D1). */
-  urbain:      '#E8E2D1',
+  /* Zone bâtie : beige chaud proche PLAN IGN (pas gris froid). */
+  urbain:      '#EFD9C0',
   industriel:  '#D9D9D9',
   site:        '#F0EDE6',
   sitePublic:  '#E8D4D8',
@@ -152,6 +152,22 @@ const C = {
 const POLICE   = ['Noto Sans Regular'];
 const POLICE_G = ['Noto Sans Medium'];
 const POLICE_I = ['Noto Sans Italic'];
+
+/* Banlieues OSM souvent taguées city/town avec grosse pop — pas à z7 IGN. */
+const BANLIEUE = ['literal', [
+  'Villeurbanne','Vénissieux','Vaulx-en-Velin','Saint-Priest','Caluire-et-Cuire',
+  'Vénissieux','Échirolles','Fontaine','Saint-Martin-d\'Hères','Meylan',
+  'Montreuil','Argenteuil','Boulogne-Billancourt','Saint-Denis','Nanterre',
+  'Vitry-sur-Seine','Créteil','Colombes','Aubervilliers','Asnières-sur-Seine',
+  'Courbevoie','Rueil-Malmaison','Champigny-sur-Marne','Aulnay-sous-Bois',
+  'Saint-Maur-des-Fossés','Drancy','Issy-les-Moulineaux','Noisy-le-Grand',
+  'Levallois-Perret','Neuilly-sur-Seine','Antony','Clichy','Ivry-sur-Seine',
+  'La Seyne-sur-Mer','Aubagne','La Ciotat','Six-Fours-les-Plages','Garches',
+  'Gennevilliers','Suresnes','Vincennes','Savigny-sur-Orge','Tremblay-en-France',
+  'Poissy','Plaisir','Roissy-en-Brie','Conflans-Sainte-Honorine',
+  'Sotteville-lès-Rouen','Le Grand-Quevilly','Le Petit-Quevilly','Mont-Saint-Aignan'
+]];
+const pasBanlieue = ['!', ['in', ['get','name'], BANLIEUE]];
 
 /* --------------------------------------------------------------------------
    Interpolations calées sur les stops du style PLAN IGN (linéaire).
@@ -190,6 +206,58 @@ const styleOSM = {
       tiles: ['https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt'],
       minzoom: 0, maxzoom: 14,
       attribution: '© les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    },
+    /* Toponymes hydro / parcs absents de Shortbread — points curatés FR. */
+    toponymesFr: {
+      type: 'geojson',
+      data: {
+        type: 'FeatureCollection',
+        features: [
+          { type:'Feature', properties:{ kind:'mer', name:'MÉDITERRANÉE' }, geometry:{ type:'Point', coordinates:[5.5, 41.7] } },
+          { type:'Feature', properties:{ kind:'golfe', name:'GOLFE DU LION' }, geometry:{ type:'Point', coordinates:[4.1, 42.75] } },
+          { type:'Feature', properties:{ kind:'mer', name:'MANCHE' }, geometry:{ type:'Point', coordinates:[0.8, 49.85] } },
+          { type:'Feature', properties:{ kind:'mer', name:'GOLFE DE GASCOGNE' }, geometry:{ type:'Point', coordinates:[-3.5, 45.2] } },
+          /* Parcs : Title Case + italique (comme PLAN IGN), pas UPPERCASE criard. */
+          { type:'Feature', properties:{ kind:'parc', name:'Cévennes' }, geometry:{ type:'Point', coordinates:[3.58, 44.2] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Vanoise' }, geometry:{ type:'Point', coordinates:[6.85, 45.35] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Écrins' }, geometry:{ type:'Point', coordinates:[6.25, 44.9] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Mercantour' }, geometry:{ type:'Point', coordinates:[7.15, 44.15] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Luberon' }, geometry:{ type:'Point', coordinates:[5.35, 43.8] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Vercors' }, geometry:{ type:'Point', coordinates:[5.35, 44.95] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Chartreuse' }, geometry:{ type:'Point', coordinates:[5.75, 45.35] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Camargue' }, geometry:{ type:'Point', coordinates:[4.55, 43.52] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Fontainebleau' }, geometry:{ type:'Point', coordinates:[2.67, 48.4] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Morvan' }, geometry:{ type:'Point', coordinates:[4.05, 47.15] } },
+          { type:'Feature', properties:{ kind:'parc', name:'Queyras' }, geometry:{ type:'Point', coordinates:[6.8, 44.75] } },
+          /* Villes absentes des tuiles Shortbread avant z6 — pont bas zoom façon IGN. */
+          { type:'Feature', properties:{ kind:'ville', name:'Avignon', pop:90000 }, geometry:{ type:'Point', coordinates:[4.81, 43.95] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Nîmes', pop:148000 }, geometry:{ type:'Point', coordinates:[4.36, 43.84] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Valence', pop:64000 }, geometry:{ type:'Point', coordinates:[4.89, 44.93] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Grenoble', pop:157000 }, geometry:{ type:'Point', coordinates:[5.72, 45.19] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Aix-en-Provence', pop:147000 }, geometry:{ type:'Point', coordinates:[5.45, 43.53] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Toulon', pop:180000 }, geometry:{ type:'Point', coordinates:[5.93, 43.12] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Montpellier', pop:302000 }, geometry:{ type:'Point', coordinates:[3.88, 43.61] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Nice', pop:348000 }, geometry:{ type:'Point', coordinates:[7.27, 43.70] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Reims', pop:180000 }, geometry:{ type:'Point', coordinates:[4.03, 49.26] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Amiens', pop:130000 }, geometry:{ type:'Point', coordinates:[2.30, 49.89] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Tours', pop:135000 }, geometry:{ type:'Point', coordinates:[0.68, 47.39] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Angers', pop:155000 }, geometry:{ type:'Point', coordinates:[-0.55, 47.47] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Le Mans', pop:145000 }, geometry:{ type:'Point', coordinates:[0.20, 48.01] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Caen', pop:105000 }, geometry:{ type:'Point', coordinates:[-0.37, 49.18] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Clermont-Ferrand', pop:147000 }, geometry:{ type:'Point', coordinates:[3.09, 45.78] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Dijon', pop:155000 }, geometry:{ type:'Point', coordinates:[5.04, 47.32] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Besançon', pop:120000 }, geometry:{ type:'Point', coordinates:[6.02, 47.24] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Nancy', pop:105000 }, geometry:{ type:'Point', coordinates:[6.18, 48.69] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Metz', pop:120000 }, geometry:{ type:'Point', coordinates:[6.18, 49.12] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Perpignan', pop:120000 }, geometry:{ type:'Point', coordinates:[2.90, 42.70] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Pau', pop:77000 }, geometry:{ type:'Point', coordinates:[-0.37, 43.30] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Limoges', pop:130000 }, geometry:{ type:'Point', coordinates:[1.26, 45.84] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Poitiers', pop:90000 }, geometry:{ type:'Point', coordinates:[0.34, 46.58] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Brest', pop:140000 }, geometry:{ type:'Point', coordinates:[-4.49, 48.39] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Saint-Étienne', pop:173000 }, geometry:{ type:'Point', coordinates:[4.39, 45.44] } },
+          { type:'Feature', properties:{ kind:'ville', name:'Annecy', pop:130000 }, geometry:{ type:'Point', coordinates:[6.13, 45.90] } }
+        ]
+      }
     }
   },
   layers: [
@@ -200,10 +268,10 @@ const styleOSM = {
        interpolate zoom par expression (pas dans un match). */
     { id: 'land', type: 'fill', source: 'osm', 'source-layer': 'land',
       filter: ['!', ['in', ['get','kind'], ['literal',
-        ['residential','retail','commercial','garages','brownfield','greenfield']]]],
+        ['residential','retail','commercial','garages','brownfield','greenfield',
+         'forest','scrub','heath']]]],
       paint: { 'fill-color': ['match', ['get','kind'],
-        'forest', C.foret,
-        'scrub', C.foretOuverte, 'heath', C.lande, 'grassland', C.herbe,
+        'grassland', C.herbe,
         'grass', C.herbe, 'meadow', C.herbe, 'village_green', C.herbe,
         'park', C.herbe, 'garden', C.herbe, 'recreation_ground', C.herbe,
         'orchard', C.verger, 'plant_nursery', C.verger,
@@ -220,11 +288,50 @@ const styleOSM = {
         'greenhouse_horticulture', '#EFF2E6',
         'transparent' ] } },
 
+    /* Forêt atténuée aux petits zooms (IGN = masses généralisées, OSM trop granuleux). */
+    { id: 'foret', type: 'fill', source: 'osm', 'source-layer': 'land',
+      filter: ['in', ['get','kind'], ['literal',['forest','scrub','heath']]],
+      paint: {
+        'fill-color': ['match', ['get','kind'],
+          'forest', C.foret, 'scrub', C.foretOuverte, C.lande],
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 7, 0.45, 9, 0.75, 11, 1]
+      } },
+
     { id: 'zone-urbaine', type: 'fill', source: 'osm', 'source-layer': 'land',
-      minzoom: 7, maxzoom: 15,
+      minzoom: 6, maxzoom: 15,
       filter: ['in', ['get','kind'], ['literal',
-        ['residential','garages','brownfield','greenfield']]],
+        ['residential','retail','commercial','garages','brownfield','greenfield']]],
       paint: { 'fill-color': C.urbain, 'fill-opacity': opacUrbain } },
+
+    /* Empreinte urbaine z5–11 (landuse residential souvent absent à z7). */
+    { id: 'halo-urbain', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 5, maxzoom: 11,
+      filter: ['all',
+        ['in', ['get','kind'], ['literal',['capital','state_capital','city']]],
+        pasBanlieue,
+        ['>', ['to-number', ['coalesce', ['get','population'], 0]], 60000]],
+      paint: {
+        'circle-color': C.urbain,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          5, ['match', ['get','kind'], 'capital', 28, 'state_capital', 22, 'city', 18, 12],
+          7, ['match', ['get','kind'], 'capital', 46, 'state_capital', 36, 'city', 28, 16],
+          9, ['match', ['get','kind'], 'capital', 54, 'state_capital', 42, 'city', 32, 18],
+          11, ['match', ['get','kind'], 'capital', 40, 'state_capital', 30, 'city', 22, 12]],
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.55, 7, 0.7, 10, 0.35, 11, 0],
+        'circle-blur': 0.88
+      } },
+    { id: 'halo-bourg', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 7, maxzoom: 10,
+      filter: ['all',
+        ['==', ['get','kind'], 'town'],
+        pasBanlieue,
+        ['>', ['to-number', ['get','population']], 35000]],
+      paint: {
+        'circle-color': C.urbain,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 7, 11, 8, 15, 10, 12],
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 7, 0.45, 8, 0.5, 10, 0],
+        'circle-blur': 0.85
+      } },
 
     /* Lavande ZAI IGN (#EBEBF5) — zones d’activité / commercial à z13+. */
     { id: 'zone-activite', type: 'fill', source: 'osm', 'source-layer': 'land',
@@ -314,41 +421,43 @@ const styleOSM = {
     ...route('tertiaire',
       ['all', ['==', ['get','kind'], 'tertiary'], pasLien],
       coulZ([[6,'#F2B361'],[7,'#FFFFFF'],[12,'#FFFFFF'],[13,'#FEF8D0'],[17,'#FCF7C1']]),
-      coulZ([[12,'#8C8C8C'],[13,'#B4B4B4'],[17,'#B4B4B4']]),
-      [[12,1.0],[14,2.3],[15,4.1],[16,6.1],[17,13.1]],
-      [[12,1.6],[14,3.5],[15,6],[16,8.4],[17,18.3]],
-      12),
+      coulZ([[9,'#9A9A9A'],[12,'#B4B4B4'],[17,'#B4B4B4']]),
+      [[9,0.6],[12,1.0],[14,2.3],[15,4.1],[16,6.1],[17,13.1]],
+      [[9,1.0],[12,1.6],[14,3.5],[15,6],[16,8.4],[17,18.3]],
+      9),
 
     ...route('secondaire',
       ['all', ['==', ['get','kind'], 'secondary'], pasLien],
-      coulZ([[6,'#F2A949'],[7,'#FFFFFF'],[11,'#FFFFFF'],[12,'#FEF6C8'],[17,'#FCF6BD']]),
-      coulZ([[11,'#828282'],[12,'#B4B4B4'],[17,'#B4B4B4']]),
-      [[11,1.2],[14,3.2],[15,5.8],[16,8.3],[17,16.2]],
-      [[11,1.8],[14,5],[15,8.1],[16,11.2],[17,22]],
-      11),
+      coulZ([[6,'#F2A949'],[7,'#FFFFFF'],[10,'#FFFFFF'],[11,'#FEF6C8'],[17,'#FCF6BD']]),
+      coulZ([[7,'#9A9A9A'],[10,'#B4B4B4'],[17,'#B4B4B4']]),
+      [[7,0.85],[9,1.15],[14,3.2],[15,5.8],[16,8.3],[17,16.2]],
+      [[7,1.25],[9,1.7],[14,5],[15,8.1],[16,11.2],[17,22]],
+      7),
 
+    /* Primaire dès z7 (IGN : jaune/orange fin, distinct de l’autoroute). */
     ...route('primaire',
       ['all', ['==', ['get','kind'], 'primary'], pasLien],
       coulZ([[6,'#F29924'],[7,'#F3C66D'],[9,'#F3C66D'],[17,'#F2DDB3']]),
-      coulZ([[8,'#E2A52A'],[17,'#E2A52A']]),
-      [[6,1.2],[9,1.5],[14,4.0],[15,6.5],[16,9],[17,16]],
-      [[6,1.4],[9,2.0],[14,5.2],[15,8],[16,11],[17,20]],
-      8),
+      coulZ([[7,'#E2A52A'],[17,'#E2A52A']]),
+      [[7,1.0],[9,1.4],[14,4.0],[15,6.5],[16,9],[17,16]],
+      [[7,1.35],[9,1.9],[14,5.2],[15,8],[16,11],[17,20]],
+      7),
 
+    /* Trunk OSM trop dense vs IGN : plus fin / plus pâle à z7. */
     ...route('trunk',
       ['all', ['==', ['get','kind'], 'trunk'], pasLien],
-      coulZ([[6,'#F29924'],[7,'#F3C66D'],[9,'#F3C66D'],[17,'#F2DDB3']]),
-      coulZ([[8,'#E2A52A'],[17,'#E2A52A']]),
-      [[6,1.2],[9,1.5],[14,4.0],[15,6.5],[16,9],[17,16]],
-      [[6,1.4],[9,2.0],[14,5.2],[15,8],[16,11],[17,20]],
+      coulZ([[6,'#F3C66D'],[7,'#F3C66D'],[9,'#F3C66D'],[17,'#F2DDB3']]),
+      coulZ([[7,'#E2A52A'],[17,'#E2A52A']]),
+      [[6,1.0],[7,1.15],[9,1.45],[14,4.0],[15,6.5],[16,9],[17,16]],
+      [[6,1.25],[7,1.5],[9,1.95],[14,5.2],[15,8],[16,11],[17,20]],
       6),
 
     ...route('autoroute',
       ['all', ['==', ['get','kind'], 'motorway'], pasLien],
       coulZ([[9,'#F18800'],[17,'#F2B230']]),
       coulZ([[9,'#DE460E'],[17,'#F18800']]),
-      [[4,0.6],[6,1.8],[9,2.2],[14,5.0],[15,8],[16,11],[17,18]],
-      [[6,2.0],[9,2.8],[14,6.5],[15,9.5],[16,13],[17,22]],
+      [[4,0.7],[6,2.2],[9,2.7],[14,5.5],[15,8.5],[16,11.5],[17,19]],
+      [[6,2.4],[9,3.5],[14,7.0],[15,10],[16,14],[17,23]],
       5),
 
     /* Bretelles (links) : plus fines, à partir de z12. */
@@ -386,10 +495,299 @@ const styleOSM = {
                'line-width': larg([[3,0.8],[8,2],[12,3]]),
                'line-dasharray': [3, 1.5] } },
 
-    /* --- Écritures ---------------------------------------------------- */
+    /* --- Écritures ----------------------------------------------------
+       Ordre = priorité collision MapLibre (couches tôt gagnent).
+       Villes AVANT écussons/eau, sinon LYON/GRENOBLE disparaissent à z7. */
+
+    /* Ponctuel de localité. */
+    { id: 'pct-lieu', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
+      maxzoom: 14,
+      filter: ['in', ['get','kind'], ['literal',
+        ['capital','state_capital','city','town']]],
+      paint: {
+        'circle-color': C.ponctuel,
+        'circle-stroke-color': C.ponctuelBord,
+        'circle-stroke-width': 1,
+        'circle-radius': ['interpolate', ['linear'], ['zoom'],
+          5,  ['match', ['get','kind'], 'capital', 2.5, 'state_capital', 2.2, 'city', 1.8, 1.4],
+          11, ['match', ['get','kind'], 'capital', 3.5, 'state_capital', 3, 'city', 2.6, 2]],
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14, 0] } },
+
+    { id: 'pct-village', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 8, maxzoom: 14,
+      filter: ['in', ['get','kind'], ['literal',['village','hamlet']]],
+      paint: {
+        'circle-color': C.ponctuel,
+        'circle-stroke-color': C.ponctuelBord,
+        'circle-stroke-width': 0.8,
+        'circle-radius': 1.2,
+        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14, 0] } },
+
+    /* Capitales / préfectures de région — toujours visibles. */
+    { id: 'lbl-capitale', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      filter: ['in', ['get','kind'], ['literal',['capital','state_capital']]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE_G,
+        'text-transform': ['step', ['zoom'], 'uppercase', 10, 'none'],
+        'text-size': ['interpolate', ['linear'], ['zoom'],
+          3,  ['match', ['get','kind'], 'capital', 14, 12],
+          6,  ['match', ['get','kind'], 'capital', 30, 24],
+          7,  ['match', ['get','kind'], 'capital', 32, 26],
+          9,  ['match', ['get','kind'], 'capital', 20, 16],
+          11, ['match', ['get','kind'], 'capital', 15, 13],
+          14, ['match', ['get','kind'], 'capital', 16, 14]],
+        'text-letter-spacing': ['step', ['zoom'], 0.1, 10, 0],
+        'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
+        /* allow + ignore : toujours visible (PARIS) sans bloquer GRENOBLE. */
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+        'text-padding': 2,
+        'text-max-width': 8,
+        'text-variable-anchor': ['center','top','bottom','left','right'],
+        'text-radial-offset': 0.25,
+        'text-justify': 'auto'
+      },
+      paint: {
+        'text-color': '#111110', 'text-halo-color': C.texteHalo, 'text-halo-width': 2.2,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14, 0.55, 15, 0]
+      } },
+
+    /* Pont z4–6 : Shortbread n’a pas encore AVIGNON/etc. (maxzoom exclusif à 6). */
+    { id: 'lbl-ville-basse', type: 'symbol', source: 'toponymesFr',
+      minzoom: 4, maxzoom: 6,
+      filter: ['==', ['get','kind'], 'ville'],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE_G,
+        'text-transform': 'uppercase',
+        'text-size': ['interpolate', ['linear'], ['zoom'],
+          4, ['case', ['>', ['get','pop'], 150000], 14, 12],
+          5, ['case', ['>', ['get','pop'], 150000], 17, 15],
+          5.9, ['case', ['>', ['get','pop'], 150000], 19, 17]],
+        'text-letter-spacing': 0.06,
+        'symbol-sort-key': ['*', -1, ['get','pop']],
+        'text-allow-overlap': true,
+        'text-ignore-placement': true,
+        'text-padding': 2,
+        'text-max-width': 8
+      },
+      paint: {
+        'text-color': '#111110', 'text-halo-color': C.texteHalo, 'text-halo-width': 2
+      } },
+
+    /* Grandes villes — UPPERCASE z≤9.
+       allow-overlap jusqu’à z11 : sinon AVIGNON/NÎMES disparaissent dès z8
+       (collision densifie + tuiles). */
+    { id: 'lbl-ville', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      filter: ['all',
+        ['==', ['get','kind'], 'city'],
+        pasBanlieue,
+        ['>', ['to-number', ['coalesce', ['get','population'], 0]], 55000]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': ['step', ['zoom'], ['literal', POLICE_G], 10, ['literal', POLICE]],
+        'text-transform': ['step', ['zoom'], 'uppercase', 10, 'none'],
+        'text-size': ['interpolate', ['linear'], ['zoom'],
+          4, 12,
+          6, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 120000], 20, 18],
+          7, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 120000], 22, 20],
+          8, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 120000], 18, 17],
+          9, 15,
+          11, 12,
+          14, 13],
+        'text-letter-spacing': ['step', ['zoom'], 0.05, 10, 0],
+        'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
+        'text-allow-overlap': ['step', ['zoom'], true, 11, false],
+        'text-ignore-placement': ['step', ['zoom'], true, 11, false],
+        'text-variable-anchor': ['center','top','bottom','left','right'],
+        'text-radial-offset': 0.3,
+        'text-justify': 'auto',
+        'text-max-width': 8,
+        'text-padding': 2
+      },
+      paint: {
+        'text-color': '#111110', 'text-halo-color': C.texteHalo, 'text-halo-width': 2,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14, 0.65, 15, 0]
+      } },
+
+    /* Petites cities OSM (souvent banlieue) : plus tard. */
+    { id: 'lbl-ville-petite', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 9,
+      filter: ['all',
+        ['==', ['get','kind'], 'city'],
+        pasBanlieue,
+        ['<=', ['to-number', ['coalesce', ['get','population'], 0]], 55000]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE_G,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 9, 12, 11, 12, 14, 12],
+        'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
+        'text-padding': 6,
+        'text-max-width': 8,
+        'text-variable-anchor': ['left','right','top','bottom'],
+        'text-radial-offset': 0.45
+      },
+      paint: {
+        'text-color': '#1A1918', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.6,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 14, 1, 15, 0.4, 16, 0]
+      } },
+
+    /* Bourgs majeurs (≥50k) : UPPERCASE façon IGN (Cannes, Chambéry…). */
+    { id: 'lbl-bourg-maj', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 6,
+      filter: ['all',
+        ['==', ['get','kind'], 'town'],
+        pasBanlieue,
+        ['>', ['to-number', ['get','population']], 50000]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE_G,
+        'text-transform': ['step', ['zoom'], 'uppercase', 10, 'none'],
+        'text-size': ['interpolate', ['linear'], ['zoom'],
+          6, 14, 7, 16, 9, 13, 11, 12, 14, 12],
+        'text-letter-spacing': ['step', ['zoom'], 0.05, 10, 0],
+        'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
+        'text-padding': 4,
+        'text-max-width': 8,
+        'text-variable-anchor': ['left','right','top','bottom'],
+        'text-radial-offset': 0.45
+      },
+      paint: {
+        'text-color': '#111110', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.8,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 14, 1, 15, 0.4, 16, 0]
+      } },
+
+    /* Bourgs moyens — Title Case, très sélectifs à z7 (IGN peu dense). */
+    { id: 'lbl-bourg', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 7,
+      filter: ['all',
+        ['==', ['get','kind'], 'town'],
+        pasBanlieue,
+        ['>', ['to-number', ['get','population']], 25000],
+        ['<=', ['to-number', ['get','population']], 50000]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': ['step', ['zoom'], ['literal', POLICE_G], 10, ['literal', POLICE]],
+        'text-transform': 'none',
+        'text-size': ['interpolate', ['linear'], ['zoom'],
+          7, 11.5, 9, 11, 11, 11, 14, 12],
+        'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
+        'text-padding': 14,
+        'text-max-width': 8,
+        'text-variable-anchor': ['left','right','top','bottom'],
+        'text-radial-offset': 0.5
+      },
+      paint: {
+        'text-color': '#1A1918', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.6,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 14, 1, 15, 0.45, 16, 0]
+      } },
+
+    { id: 'lbl-bourg-petit', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 8,
+      filter: ['all',
+        ['==', ['get','kind'], 'town'],
+        ['<=', ['to-number', ['get','population']], 25000]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 11, 11, 10, 14, 11],
+        'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
+        'text-padding': 12,
+        'text-max-width': 7,
+        'text-variable-anchor': ['left','right','top','bottom'],
+        'text-radial-offset': 0.5
+      },
+      paint: {
+        'text-color': '#2C2B28', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.4,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 14, 1, 16, 0.4]
+      } },
+
+    /* Villages : z8+ (IGN en montre peu à z7). */
+    { id: 'lbl-village', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 8,
+      filter: ['==', ['get','kind'], 'village'],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 8, 10, 11, 10, 14, 11],
+        'text-padding': 12,
+        'text-max-width': 7,
+        'text-variable-anchor': ['left','right','top','bottom'],
+        'text-radial-offset': 0.45
+      },
+      paint: {
+        'text-color': '#3A3936', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.3,
+        'text-opacity': ['interpolate', ['linear'], ['zoom'], 16, 1, 17, 0.35]
+      } },
+
+    { id: 'lbl-hameau', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
+      minzoom: 10,
+      filter: ['==', ['get','kind'], 'hamlet'],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE,
+        'text-size': 9,
+        'text-padding': 14,
+        'text-max-width': 6
+      },
+      paint: {
+        'text-color': '#55524C', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.2
+      } },
+
+    { id: 'lbl-mer', type: 'symbol', source: 'toponymesFr',
+      minzoom: 4, maxzoom: 10,
+      filter: ['in', ['get','kind'], ['literal',['mer','golfe']]],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE_I,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 4, 14, 7, 22, 9, 16],
+        'text-letter-spacing': 0.14,
+        'text-max-width': 12,
+        'text-padding': 2,
+        'text-optional': true
+      },
+      paint: {
+        'text-color': '#3F7A99',
+        'text-halo-color': 'rgba(255,255,255,0.55)',
+        'text-halo-width': 1.5,
+        'text-opacity': 0.9
+      } },
+
+    /* Parcs naturels : italique discret, cède aux villes. */
+    { id: 'lbl-parc', type: 'symbol', source: 'toponymesFr',
+      minzoom: 7, maxzoom: 12,
+      filter: ['==', ['get','kind'], 'parc'],
+      layout: {
+        'text-field': ['get','name'],
+        'text-font': POLICE_I,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 7, 13, 9, 14, 11, 12],
+        'text-letter-spacing': 0.08,
+        'text-max-width': 10,
+        'text-padding': 10,
+        'text-optional': true
+      },
+      paint: {
+        'text-color': '#3F7A30',
+        'text-halo-color': 'rgba(255,255,255,0.8)',
+        'text-halo-width': 1.4,
+        'text-opacity': 0.88
+      } },
+
+    { id: 'lbl-eau-large', type: 'symbol', source: 'osm', 'source-layer': 'water_polygons_labels',
+      minzoom: 4,
+      filter: ['>', ['get', 'way_area'], 5e8],
+      layout: { 'text-field': ['get','name'], 'text-font': POLICE_I, 'text-size':
+                ['interpolate', ['linear'], ['zoom'], 4, 13, 7, 18, 10, 15],
+                'text-max-width': 10, 'text-padding': 6, 'text-optional': true },
+      paint: { 'text-color': C.texteEau, 'text-halo-color': C.texteHalo, 'text-halo-width': 1.5,
+               'text-opacity': 0.85 } },
+
     { id: 'lbl-eau', type: 'symbol', source: 'osm', 'source-layer': 'water_polygons_labels',
       minzoom: 12,
-      filter: ['>', ['get', 'way_area'], 500000],
+      filter: ['all',
+        ['>', ['get', 'way_area'], 500000],
+        ['<=', ['get', 'way_area'], 5e8]],
       layout: { 'text-field': ['get','name'], 'text-font': POLICE_I, 'text-size': 11,
                 'text-max-width': 7,
                 'text-padding': 12 },
@@ -410,22 +808,23 @@ const styleOSM = {
                 'text-padding': 4 },
       paint: { 'text-color': '#000000', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.4 } },
 
-    /* Écussons de route : le fond est une image 9-tranches fabriquée au
-       chargement (voir creerEcusson), ce qui évite un fichier sprite. */
+    /* Écussons APRÈS toponymes ; overlap pour rester visibles à z7. */
     { id: 'ecussons', type: 'symbol', source: 'osm', 'source-layer': 'street_labels',
-      minzoom: 8,
+      minzoom: 7,
       filter: ['all', ['has','ref'],
-               ['in', ['get','kind'], ['literal',['motorway','trunk','primary']]]],
-      layout: { 'symbol-placement': 'line', 'symbol-spacing': 220,
+               ['==', ['get','kind'], 'motorway']],
+      layout: { 'symbol-placement': 'line', 'symbol-spacing': 320,
                 'text-field': ['get','ref'], 'text-font': POLICE_G, 'text-size': 10,
                 'text-rotation-alignment': 'viewport',
                 'icon-rotation-alignment': 'viewport',
                 'icon-image': 'ecusson', 'icon-text-fit': 'both',
                 'icon-text-fit-padding': [1, 4, 1, 4],
-                'text-padding': 2, 'icon-allow-overlap': false },
+                'text-padding': 2,
+                'icon-allow-overlap': false,
+                'text-allow-overlap': false,
+                'symbol-sort-key': 10 },
       paint: { 'text-color': '#FFFFFF' } },
 
-    /* Sorties d’autoroute. */
     { id: 'lbl-sortie', type: 'symbol', source: 'osm', 'source-layer': 'street_labels_points',
       minzoom: 13,
       layout: { 'text-field': ['get','ref'], 'text-font': POLICE_G, 'text-size': 11,
@@ -433,7 +832,7 @@ const styleOSM = {
                 'icon-text-fit-padding': [1, 4, 1, 4] },
       paint: { 'text-color': '#FFFFFF' } },
 
-    /* POI discrets : pastille blanche liseré bleu (style hydro/équipement IGN). */
+    /* POI discrets : pastille blanche liseré bleu. */
     { id: 'poi', type: 'circle', source: 'osm', 'source-layer': 'pois',
       minzoom: 16,
       filter: ['any',
@@ -448,81 +847,6 @@ const styleOSM = {
         'circle-stroke-width': 1.5
       } },
 
-    /* Ponctuel de localité : peuplé seulement (évite localities/fermes en montagne). */
-    { id: 'pct-lieu', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
-      maxzoom: 14,
-      filter: ['in', ['get','kind'], ['literal',
-        ['capital','state_capital','city','town']]],
-      paint: {
-        'circle-color': C.ponctuel,
-        'circle-stroke-color': C.ponctuelBord,
-        'circle-stroke-width': 1,
-        'circle-radius': ['interpolate', ['linear'], ['zoom'],
-          5,  ['match', ['get','kind'], 'capital', 2.5, 'state_capital', 2.2, 'city', 1.8, 1.4],
-          11, ['match', ['get','kind'], 'capital', 3.5, 'state_capital', 3, 'city', 2.6, 2]],
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14, 0] } },
-
-    { id: 'pct-village', type: 'circle', source: 'osm', 'source-layer': 'place_labels',
-      minzoom: 10, maxzoom: 14,
-      filter: ['in', ['get','kind'], ['literal',['village','hamlet']]],
-      paint: {
-        'circle-color': C.ponctuel,
-        'circle-stroke-color': C.ponctuelBord,
-        'circle-stroke-width': 0.8,
-        'circle-radius': 1.2,
-        'circle-opacity': ['interpolate', ['linear'], ['zoom'], 12, 1, 14, 0] } },
-
-    /* Villes / bourgs — IGN : casse mixte, Regular, tailles discrètes. */
-    { id: 'lbl-lieu', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
-      filter: ['in', ['get','kind'], ['literal',
-        ['capital','state_capital','city','town']]],
-      layout: {
-        'text-field': ['get','name'],
-        'text-font': ['case',
-          ['==', ['get','kind'], 'capital'], ['literal', POLICE_G],
-          ['literal', POLICE]],
-        'text-transform': 'none',
-        'text-size': ['interpolate', ['linear'], ['zoom'],
-          4,  ['match', ['get','kind'], 'capital', 12, 'state_capital', 10, 'city', 9, 8],
-          8,  ['match', ['get','kind'], 'capital', 13, 'state_capital', 11, 'city', 10, 'town', 9, 8],
-          10, ['match', ['get','kind'], 'capital', 14, 'state_capital', 12, 'city', 11, 'town', 10, 9],
-          14, ['match', ['get','kind'], 'capital', 17, 'state_capital', 15, 'city', 13, 'town', 12, 11]],
-        'text-letter-spacing': 0,
-        'text-variable-anchor': ['left','right','top','bottom'],
-        'text-radial-offset': 0.55,
-        'text-justify': 'auto',
-        'text-max-width': 8,
-        'text-padding': 8
-      },
-      paint: {
-        'text-color': '#3A3936', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.4,
-        'text-opacity': ['interpolate', ['linear'], ['zoom'],
-          12, 1,
-          14, ['match', ['get','kind'], 'capital', 0.55, 'state_capital', 0.6, 'city', 0.7, 1],
-          15, ['match', ['get','kind'],
-                'capital', 0, 'state_capital', 0, 'city', 0, 'town', 0.5, 1],
-          16, ['match', ['get','kind'], 'town', 0, 1]]
-      } },
-
-    /* Villages / hameaux : petits, dès z10 (IGN en montre déjà). */
-    { id: 'lbl-village', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
-      minzoom: 10,
-      filter: ['in', ['get','kind'], ['literal',['village','hamlet']]],
-      layout: {
-        'text-field': ['get','name'],
-        'text-font': POLICE,
-        'text-size': ['interpolate', ['linear'], ['zoom'], 10, 8.5, 14, 11],
-        'text-padding': 12,
-        'text-max-width': 7,
-        'text-variable-anchor': ['left','right','top','bottom'],
-        'text-radial-offset': 0.5
-      },
-      paint: {
-        'text-color': '#4A4844', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.2,
-        'text-opacity': ['interpolate', ['linear'], ['zoom'], 16, 1, 17, 0.35]
-      } },
-
-    /* Quartiers : plus tard que les villes. */
     { id: 'lbl-quartier', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
       minzoom: 12,
       filter: ['in', ['get','kind'], ['literal',['suburb','quarter']]],
@@ -552,7 +876,6 @@ const styleOSM = {
         'text-color': '#55524C', 'text-halo-color': C.texteHalo, 'text-halo-width': 1.2
       } },
 
-    /* Lieux-dits / localities : plus tard, italique, discret. */
     { id: 'lbl-locality', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
       minzoom: 14,
       filter: ['in', ['get','kind'], ['literal',['locality','farm','isolated_dwelling']]],
