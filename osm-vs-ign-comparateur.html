@@ -102,19 +102,21 @@
 </div>
 
 <div id="pied">
-  © les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · PLAN IGN © IGN
+  © les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · relief © Mapzen · PLAN IGN © IGN
 </div>
 <div id="diag"></div>
 
 <script>
 const C = {
-  fond:        '#FFFFFF',
-  ocean:       '#CFE4EE',
-  eau:         '#B5D8E8',
-  eauTrait:    '#AAD5E9',
+  fond:        '#F4F2EB',
+  /* Hydro PLAN IGN (#AAD5E9). */
+  ocean:       '#AAD5E9',
+  eau:         '#AAD5E9',
+  eauTrait:    '#7EB6D2',
 
-  foret:       '#D9EBD0',
-  foretOuverte:'#E5F0D4',
+  /* Végétation PLAN IGN. */
+  foret:       '#DFE8D5',
+  foretOuverte:'#EDF2D9',
   lande:       '#F2EECD',
   verger:      '#FAE2C5',
   vigne:       '#FFEDD9',
@@ -122,11 +124,11 @@ const C = {
   sable:       '#FAF3E0',
   rocher:      '#EFEDE8',
   glacier:     '#E4F1F6',
-  /* Zone bâtie : beige chaud proche PLAN IGN (pas gris froid). */
-  urbain:      '#EFD9C0',
+  /* Zone bâtie PLAN IGN. */
+  urbain:      '#E8E2D1',
   industriel:  '#D9D9D9',
   site:        '#F0EDE6',
-  sitePublic:  '#E8D4D8',
+  sitePublic:  '#B9B6D6',
   siteSport:   '#C9E1DD',
 
   bati:        '#D6C6B8',
@@ -146,7 +148,7 @@ const C = {
 
   texte:       '#33322F',
   texteHalo:   '#FFFFFF',
-  texteEau:    '#3F7A99'
+  texteEau:    '#447FB3'
 };
 
 const POLICE   = ['Noto Sans Regular'];
@@ -178,16 +180,15 @@ const coulZ = (paires) => ['interpolate', ['linear'], ['zoom'], ...paires.flat()
 /* Zone bâtie : stops IGN (opaque → fondue dès le bâti). */
 const opacUrbain = ['interpolate', ['linear'], ['zoom'], 12, 1, 13, 0.9, 14, 0.5, 15, 0];
 
-/* Une classe = casing + fill. Couleurs ET largeurs suivent le zoom
-   (ex. régionale blanche à z7–9, jaune pâle ensuite — signature IGN). */
-function route(id, filtre, couleur, casing, fillW, caseW, minzoom = 0) {
+/* Une classe = casing + fill. casingMinzoom : filet extérieur IGN souvent plus tard. */
+function route(id, filtre, couleur, casing, fillW, caseW, minzoom = 0, casingMinzoom = null) {
   const base = { source: 'osm', 'source-layer': 'streets', type: 'line', filter: filtre,
-                 minzoom, layout: { 'line-cap': 'round', 'line-join': 'round' } };
+                 layout: { 'line-cap': 'round', 'line-join': 'round' } };
   return [
-    { ...base, id: id + '-casing',
+    { ...base, id: id + '-casing', minzoom: casingMinzoom ?? minzoom,
       paint: { 'line-color': casing, 'line-width': larg(caseW),
                'line-opacity': ['case', ['==', ['get','tunnel'], true], 0.35, 1] } },
-    { ...base, id: id,
+    { ...base, id: id, minzoom,
       paint: { 'line-color': couleur, 'line-width': larg(fillW),
                'line-opacity': ['case', ['==', ['get','tunnel'], true], 0.35, 1] } }
   ];
@@ -206,6 +207,15 @@ const styleOSM = {
       tiles: ['https://vector.openstreetmap.org/shortbread_v1/{z}/{x}/{y}.mvt'],
       minzoom: 0, maxzoom: 14,
       attribution: '© les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    },
+    /* Estompage (Terrarium / Mapzen) — PLAN IGN a un relief, Shortbread non. */
+    dem: {
+      type: 'raster-dem',
+      tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+      encoding: 'terrarium',
+      tileSize: 256,
+      maxzoom: 15,
+      attribution: 'Relief © Mapzen'
     },
     /* Toponymes hydro / parcs absents de Shortbread — points curatés FR. */
     toponymesFr: {
@@ -288,14 +298,20 @@ const styleOSM = {
         'greenhouse_horticulture', '#EFF2E6',
         'transparent' ] } },
 
-    /* Forêt atténuée aux petits zooms (IGN = masses généralisées, OSM trop granuleux). */
+    /* Forêt : teinte un peu plus soutenue à petit zoom (IGN #DFE8D5 ne se lit
+       que sur des masses généralisées ; OSM est trop fin sur fond blanc). */
     { id: 'foret', type: 'fill', source: 'osm', 'source-layer': 'land',
-      filter: ['in', ['get','kind'], ['literal',['forest','scrub','heath']]],
+      filter: ['==', ['get','kind'], 'forest'],
       paint: {
-        'fill-color': ['match', ['get','kind'],
-          'forest', C.foret, 'scrub', C.foretOuverte, C.lande],
-        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 5, 0.3, 7, 0.45, 9, 0.75, 11, 1]
+        'fill-color': ['interpolate', ['linear'], ['zoom'], 4, '#B5CBA0', 8, '#C9D7B4', 12, '#DFE8D5'],
+        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.9, 8, 1]
       } },
+    { id: 'foret-ouverte', type: 'fill', source: 'osm', 'source-layer': 'land',
+      filter: ['==', ['get','kind'], 'scrub'],
+      paint: { 'fill-color': C.foretOuverte, 'fill-opacity': 0.9 } },
+    { id: 'lande', type: 'fill', source: 'osm', 'source-layer': 'land',
+      filter: ['==', ['get','kind'], 'heath'],
+      paint: { 'fill-color': C.lande, 'fill-opacity': 0.9 } },
 
     { id: 'zone-urbaine', type: 'fill', source: 'osm', 'source-layer': 'land',
       minzoom: 6, maxzoom: 15,
@@ -338,8 +354,8 @@ const styleOSM = {
       minzoom: 13,
       filter: ['in', ['get','kind'], ['literal',
         ['industrial','railway','landfill','quarry','retail','commercial']]],
-      paint: { 'fill-color': '#EBEBF5', 'fill-opacity': 0.45,
-               'fill-outline-color': '#AAAAAA' } },
+      paint: { 'fill-color': '#EBEBF5', 'fill-opacity': 0.55,
+               'fill-outline-color': '#C8C8C8' } },
 
     { id: 'sites', type: 'fill', source: 'osm', 'source-layer': 'sites',
       minzoom: 13,
@@ -353,6 +369,14 @@ const styleOSM = {
       } },
 
     /* --- Eau ---------------------------------------------------------- */
+    { id: 'relief', type: 'hillshade', source: 'dem',
+      paint: {
+        'hillshade-exaggeration': ['interpolate', ['linear'], ['zoom'], 4, 0.55, 8, 0.4, 13, 0.18],
+        'hillshade-shadow-color': '#6E675C',
+        'hillshade-highlight-color': '#FFFFFF',
+        'hillshade-accent-color': '#8C9178',
+        'hillshade-illumination-direction': 335
+      } },
     { id: 'ocean', type: 'fill', source: 'osm', 'source-layer': 'ocean',
       paint: { 'fill-color': C.ocean } },
     { id: 'eau', type: 'fill', source: 'osm', 'source-layer': 'water_polygons',
@@ -382,15 +406,17 @@ const styleOSM = {
 
     /* --- Voies ferrées + hachures type PLAN IGN ----------------------- */
     { id: 'rail', type: 'line', source: 'osm', 'source-layer': 'streets',
-      minzoom: 10,
+      minzoom: 11,
       filter: ['==', ['get','rail'], true],
-      paint: { 'line-color': C.rail, 'line-width': larg([[10,0.6],[14,1.2],[17,2.2]]) } },
+      paint: { 'line-color': C.rail, 'line-width': larg([[11,0.4],[14,0.8],[17,1.6]]),
+               'line-opacity': 0.75 } },
     { id: 'rail-hachures', type: 'line', source: 'osm', 'source-layer': 'streets',
-      minzoom: 12,
+      minzoom: 14,
       filter: ['==', ['get','rail'], true],
       paint: { 'line-color': C.rail,
-               'line-width': larg([[12,2.5],[14,4],[17,10]]),
-               'line-dasharray': [0.1, 10] } },
+               'line-width': larg([[14,2.2],[17,6]]),
+               'line-dasharray': [0.15, 8],
+               'line-opacity': 0.65 } },
 
     /* --- Chemins / sentiers / cycles ---------------------------------- */
     { id: 'piste-cycle', type: 'line', source: 'osm', 'source-layer': 'streets',
@@ -405,60 +431,58 @@ const styleOSM = {
       minzoom: 13, filter: ['==', ['get','kind'], 'track'],
       paint: { 'line-color': C.chemin, 'line-width': larg([[14,1],[17,2],[18,7]]) } },
 
-    /* --- Réseau routier (couleurs IGN qui basculent après z7) ---------
-       Mapping : motorway→autoroute, trunk/primary→principale,
+    /* --- Réseau routier : stops couleur/largeur du style PLAN IGN ------
+       motorway→autoroute, trunk+primary→principale,
        secondary→régionale, tertiary→locale, residential→non classée.
-       À z10 IGN reste très sélectif : on retarde secondaire/tertiaire. */
+       Minzoom un cran plus tard que l’IGN : OSM classe plus de voies. */
     ...route('locale',
       ['in', ['get','kind'], ['literal',
         ['residential','unclassified','living_street','service','pedestrian','busway','bus_guideway']]],
       '#FFFFFF',
-      coulZ([[14, '#A0A0A0'], [17, '#969696']]),
-      [[12,0.8],[14,2.3],[15,4.1],[16,6.3],[17,13.5]],
-      [[12,1.4],[14,3.2],[15,5.4],[16,7.7],[17,16.8]],
-      12),
+      coulZ([[14, '#969696'], [17, '#969696']]),
+      [[14,2.3],[15,4.1],[16,6.3],[17,13.5]],
+      [[14,3.2],[15,5.4],[16,7.7],[17,16.8]],
+      12, 14),
 
     ...route('tertiaire',
       ['all', ['==', ['get','kind'], 'tertiary'], pasLien],
-      coulZ([[6,'#F2B361'],[7,'#FFFFFF'],[12,'#FFFFFF'],[13,'#FEF8D0'],[17,'#FCF7C1']]),
-      coulZ([[9,'#9A9A9A'],[12,'#B4B4B4'],[17,'#B4B4B4']]),
-      [[9,0.6],[12,1.0],[14,2.3],[15,4.1],[16,6.1],[17,13.1]],
-      [[9,1.0],[12,1.6],[14,3.5],[15,6],[16,8.4],[17,18.3]],
-      9),
+      coulZ([[7,'#FFFFFF'],[12,'#FFFFFF'],[13,'#FCF4A8'],[17,'#FCF7C1']]),
+      coulZ([[12,'#8C8C8C'],[13,'#B4B4B4'],[17,'#B4B4B4']]),
+      [[7,0.6],[9,1.3],[14,2.3],[15,4.1],[16,6.1],[17,13.1]],
+      [[7,1.1],[9,2],[14,3.5],[15,6],[16,8.4],[17,18.3]],
+      7, 7),
 
     ...route('secondaire',
       ['all', ['==', ['get','kind'], 'secondary'], pasLien],
-      coulZ([[6,'#F2A949'],[7,'#FFFFFF'],[10,'#FFFFFF'],[11,'#FEF6C8'],[17,'#FCF6BD']]),
-      coulZ([[7,'#9A9A9A'],[10,'#B4B4B4'],[17,'#B4B4B4']]),
-      [[7,0.85],[9,1.15],[14,3.2],[15,5.8],[16,8.3],[17,16.2]],
-      [[7,1.25],[9,1.7],[14,5],[15,8.1],[16,11.2],[17,22]],
-      7),
+      coulZ([[6,'#F2A949'],[7,'#FFFFFF'],[9,'#FFFFFF'],[10,'#FDF28B'],[17,'#FCF6BD']]),
+      coulZ([[9,'#828282'],[10,'#B4B4B4'],[17,'#B4B4B4']]),
+      [[5,1.15],[6,1.3],[7,1.4],[9,1.5],[14,3.2],[15,5.8],[16,8.3],[17,16.2]],
+      [[6,1.5],[7,1.8],[9,2.3],[14,5],[15,8.1],[16,11.2],[17,22]],
+      5, 7),
 
-    /* Primaire dès z7 (IGN : jaune/orange fin, distinct de l’autoroute). */
     ...route('primaire',
       ['all', ['==', ['get','kind'], 'primary'], pasLien],
       coulZ([[6,'#F29924'],[7,'#F3C66D'],[9,'#F3C66D'],[17,'#F2DDB3']]),
-      coulZ([[7,'#E2A52A'],[17,'#E2A52A']]),
-      [[7,1.0],[9,1.4],[14,4.0],[15,6.5],[16,9],[17,16]],
-      [[7,1.35],[9,1.9],[14,5.2],[15,8],[16,11],[17,20]],
-      7),
+      '#E2A52A',
+      [[4,0.6],[6,1.8],[9,2.1],[14,4.4],[15,7.3],[16,10],[17,18.5]],
+      [[6,1.8],[9,2.7],[14,5.9],[15,9],[16,12.2],[17,22.5]],
+      5, 8),
 
-    /* Trunk OSM trop dense vs IGN : plus fin / plus pâle à z7. */
     ...route('trunk',
       ['all', ['==', ['get','kind'], 'trunk'], pasLien],
-      coulZ([[6,'#F3C66D'],[7,'#F3C66D'],[9,'#F3C66D'],[17,'#F2DDB3']]),
-      coulZ([[7,'#E2A52A'],[17,'#E2A52A']]),
-      [[6,1.0],[7,1.15],[9,1.45],[14,4.0],[15,6.5],[16,9],[17,16]],
-      [[6,1.25],[7,1.5],[9,1.95],[14,5.2],[15,8],[16,11],[17,20]],
-      6),
+      coulZ([[6,'#F29924'],[7,'#F3C66D'],[9,'#F3C66D'],[17,'#F2DDB3']]),
+      '#E2A52A',
+      [[4,0.6],[6,1.8],[9,2.1],[14,4.4],[15,7.3],[16,10],[17,18.5]],
+      [[6,1.8],[9,2.7],[14,5.9],[15,9],[16,12.2],[17,22.5]],
+      4, 8),
 
     ...route('autoroute',
       ['all', ['==', ['get','kind'], 'motorway'], pasLien],
       coulZ([[9,'#F18800'],[17,'#F2B230']]),
       coulZ([[9,'#DE460E'],[17,'#F18800']]),
-      [[4,0.7],[6,2.2],[9,2.7],[14,5.5],[15,8.5],[16,11.5],[17,19]],
-      [[6,2.4],[9,3.5],[14,7.0],[15,10],[16,14],[17,23]],
-      5),
+      [[4,0.7],[6,2.5],[9,2.7],[14,5.8],[15,9],[16,12],[17,20.8]],
+      [[6,2.5],[9,3.5],[14,7.5],[15,11],[16,15],[17,26]],
+      4, 8),
 
     /* Bretelles (links) : plus fines, à partir de z12. */
     ...route('bretelle',
@@ -529,12 +553,13 @@ const styleOSM = {
       layout: {
         'text-field': ['get','name'],
         'text-font': POLICE_G,
-        'text-transform': ['step', ['zoom'], 'uppercase', 10, 'none'],
+        'text-transform': 'uppercase',
         'text-size': ['interpolate', ['linear'], ['zoom'],
-          3,  ['match', ['get','kind'], 'capital', 14, 12],
-          6,  ['match', ['get','kind'], 'capital', 30, 24],
-          7,  ['match', ['get','kind'], 'capital', 32, 26],
-          9,  ['match', ['get','kind'], 'capital', 20, 16],
+          3,  ['match', ['get','kind'], 'capital', 11, 10],
+          4,  ['match', ['get','kind'], 'capital', 13, 12],
+          6,  ['match', ['get','kind'], 'capital', 20, 17],
+          7,  ['match', ['get','kind'], 'capital', 22, 18],
+          9,  ['match', ['get','kind'], 'capital', 18, 15],
           11, ['match', ['get','kind'], 'capital', 15, 13],
           14, ['match', ['get','kind'], 'capital', 16, 14]],
         'text-letter-spacing': ['step', ['zoom'], 0.1, 10, 0],
@@ -587,14 +612,13 @@ const styleOSM = {
       layout: {
         'text-field': ['get','name'],
         'text-font': ['step', ['zoom'], ['literal', POLICE_G], 10, ['literal', POLICE]],
-        'text-transform': ['step', ['zoom'], 'uppercase', 10, 'none'],
+        'text-transform': 'uppercase',
         'text-size': ['interpolate', ['linear'], ['zoom'],
-          4, 12,
-          6, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 120000], 20, 18],
-          7, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 120000], 22, 20],
-          8, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 120000], 18, 17],
-          9, 15,
-          11, 12,
+          4, 11,
+          6, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 150000], 17, 15],
+          7, ['case', ['>', ['to-number', ['coalesce', ['get','population'], 0]], 150000], 19, 16],
+          9, 14,
+          11, 13,
           14, 13],
         'text-letter-spacing': ['step', ['zoom'], 0.05, 10, 0],
         'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
@@ -671,7 +695,7 @@ const styleOSM = {
         'text-font': ['step', ['zoom'], ['literal', POLICE_G], 10, ['literal', POLICE]],
         'text-transform': 'none',
         'text-size': ['interpolate', ['linear'], ['zoom'],
-          7, 11.5, 9, 11, 11, 11, 14, 12],
+          7, 13, 9, 12, 11, 12, 14, 13],
         'symbol-sort-key': ['*', -1, ['to-number', ['coalesce', ['get','population'], 0]]],
         'text-padding': 14,
         'text-max-width': 8,
@@ -705,7 +729,7 @@ const styleOSM = {
 
     /* Villages : z8+ (IGN en montre peu à z7). */
     { id: 'lbl-village', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
-      minzoom: 8,
+      minzoom: 9,
       filter: ['==', ['get','kind'], 'village'],
       layout: {
         'text-field': ['get','name'],
@@ -722,7 +746,7 @@ const styleOSM = {
       } },
 
     { id: 'lbl-hameau', type: 'symbol', source: 'osm', 'source-layer': 'place_labels',
-      minzoom: 10,
+      minzoom: 13,
       filter: ['==', ['get','kind'], 'hamlet'],
       layout: {
         'text-field': ['get','name'],
@@ -740,17 +764,17 @@ const styleOSM = {
       filter: ['in', ['get','kind'], ['literal',['mer','golfe']]],
       layout: {
         'text-field': ['get','name'],
-        'text-font': POLICE_I,
-        'text-size': ['interpolate', ['linear'], ['zoom'], 4, 14, 7, 22, 9, 16],
+        'text-font': POLICE,
+        'text-size': ['interpolate', ['linear'], ['zoom'], 4, 16, 6, 26, 8, 22, 10, 18],
         'text-letter-spacing': 0.14,
         'text-max-width': 12,
         'text-padding': 2,
         'text-optional': true
       },
       paint: {
-        'text-color': '#3F7A99',
-        'text-halo-color': 'rgba(255,255,255,0.55)',
-        'text-halo-width': 1.5,
+        'text-color': '#447FB3',
+        'text-halo-color': 'rgba(255,255,255,0.65)',
+        'text-halo-width': 2,
         'text-opacity': 0.9
       } },
 
@@ -761,14 +785,14 @@ const styleOSM = {
       layout: {
         'text-field': ['get','name'],
         'text-font': POLICE_I,
-        'text-size': ['interpolate', ['linear'], ['zoom'], 7, 13, 9, 14, 11, 12],
+        'text-size': ['interpolate', ['linear'], ['zoom'], 7, 13, 10, 18, 12, 16],
         'text-letter-spacing': 0.08,
         'text-max-width': 10,
         'text-padding': 10,
         'text-optional': true
       },
       paint: {
-        'text-color': '#3F7A30',
+        'text-color': '#287B00',
         'text-halo-color': 'rgba(255,255,255,0.8)',
         'text-halo-width': 1.4,
         'text-opacity': 0.88
