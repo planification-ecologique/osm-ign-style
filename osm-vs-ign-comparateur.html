@@ -102,13 +102,13 @@
 </div>
 
 <div id="pied">
-  © les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · relief © Mapzen · PLAN IGN © IGN
+  © les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · PLAN IGN © IGN
 </div>
 <div id="diag"></div>
 
 <script>
 const C = {
-  fond:        '#F4F2EB',
+  fond:        '#FFFFFF',
   /* Hydro PLAN IGN (#AAD5E9). */
   ocean:       '#AAD5E9',
   eau:         '#AAD5E9',
@@ -208,15 +208,6 @@ const styleOSM = {
       minzoom: 0, maxzoom: 14,
       attribution: '© les contributeurs <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
     },
-    /* Estompage (Terrarium / Mapzen) — PLAN IGN a un relief, Shortbread non. */
-    dem: {
-      type: 'raster-dem',
-      tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
-      encoding: 'terrarium',
-      tileSize: 256,
-      maxzoom: 15,
-      attribution: 'Relief © Mapzen'
-    },
     /* Toponymes hydro / parcs absents de Shortbread — points curatés FR. */
     toponymesFr: {
       type: 'geojson',
@@ -298,14 +289,10 @@ const styleOSM = {
         'greenhouse_horticulture', '#EFF2E6',
         'transparent' ] } },
 
-    /* Forêt : teinte un peu plus soutenue à petit zoom (IGN #DFE8D5 ne se lit
-       que sur des masses généralisées ; OSM est trop fin sur fond blanc). */
+    /* Forêt PLAN IGN : #DFE8D5 constant (pas d’estompage). */
     { id: 'foret', type: 'fill', source: 'osm', 'source-layer': 'land',
       filter: ['==', ['get','kind'], 'forest'],
-      paint: {
-        'fill-color': ['interpolate', ['linear'], ['zoom'], 4, '#B5CBA0', 8, '#C9D7B4', 12, '#DFE8D5'],
-        'fill-opacity': ['interpolate', ['linear'], ['zoom'], 4, 0.9, 8, 1]
-      } },
+      paint: { 'fill-color': C.foret, 'fill-opacity': 1 } },
     { id: 'foret-ouverte', type: 'fill', source: 'osm', 'source-layer': 'land',
       filter: ['==', ['get','kind'], 'scrub'],
       paint: { 'fill-color': C.foretOuverte, 'fill-opacity': 0.9 } },
@@ -368,15 +355,7 @@ const styleOSM = {
         'fill-opacity': 0.7
       } },
 
-    /* --- Eau ---------------------------------------------------------- */
-    { id: 'relief', type: 'hillshade', source: 'dem',
-      paint: {
-        'hillshade-exaggeration': ['interpolate', ['linear'], ['zoom'], 4, 0.55, 8, 0.4, 13, 0.18],
-        'hillshade-shadow-color': '#6E675C',
-        'hillshade-highlight-color': '#FFFFFF',
-        'hillshade-accent-color': '#8C9178',
-        'hillshade-illumination-direction': 335
-      } },
+    /* --- Eau (PLAN IGN hydro #AAD5E9, sans orographie) --------------- */
     { id: 'ocean', type: 'fill', source: 'osm', 'source-layer': 'ocean',
       paint: { 'fill-color': C.ocean } },
     { id: 'eau', type: 'fill', source: 'osm', 'source-layer': 'water_polygons',
